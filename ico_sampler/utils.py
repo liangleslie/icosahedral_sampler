@@ -73,6 +73,50 @@ def polar_2_equi(phi: np.ndarray, theta: np.ndarray, hw: Tuple) -> Tuple[np.ndar
     return x, y
 
 
+# =============================================== ROTATE ===============================================================
+
+def rotate_on_axis(coordinates_xyz, axis, angle):
+    """
+    Rotates a 3D point around a specified axis by a given angle.
+
+    Args:
+        coordinates_xyz: A NumPy array representing the 3D point (x, y, z).
+        axis: A string representing the rotation axis ('x', 'y', or 'z').
+        angle: The rotation angle in radians.
+
+    Returns:
+        A NumPy array representing the rotated 3D point.
+    """
+    # Convert the input point to a NumPy array if necessary
+    coordinates_xyz = np.array(coordinates_xyz)
+
+    # Create the rotation matrix based on the specified axis
+    if axis == 'x':
+        rotation_matrix = np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
+    elif axis == 'y':
+        rotation_matrix = np.array([
+            [np.cos(angle), 0, np.sin(angle)],
+            [0, 1, 0],
+            [-np.sin(angle), 0, np.cos(angle)]
+        ])
+    elif axis == 'z':
+        rotation_matrix = np.array([
+            [np.cos(angle), -np.sin(angle), 0],
+            [np.sin(angle), np.cos(angle), 0],
+            [0, 0, 1]
+        ])
+    else:
+        raise ValueError("Invalid axis specified. Choose 'x', 'y', or 'z'.")
+
+    # Apply the rotation matrix to the point
+    rotated_coordinates = np.dot(rotation_matrix, coordinates_xyz)
+
+    return rotated_coordinates
+
 # =============================================== CHECKS ===============================================================
 def check_eq_image_shape(eq_image: np.ndarray):
     if 2 * eq_image.shape[0] != eq_image.shape[1]:
