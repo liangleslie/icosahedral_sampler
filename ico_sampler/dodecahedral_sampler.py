@@ -80,7 +80,7 @@ class DodecahedralSampler:
 
         # for vertices 1-4, simply rotate first vertex by (2 * pi / 5) or 72 deg
         for i in range(1, 5):
-            vertices.append(rotate_on_axis(vertices[0], "y", i * math.pi * 2 / 5))
+            vertices.append(utils.rotate_on_axis(vertices[0], "y", i * math.pi * 2 / 5))
 
         # solve for y5, which is the absolute y-coordinate of the middle vertices
         _ratio = (math.cos(math.radians(54)) + math.sin(math.radians(72))) / (math.sin(math.radians(72)))
@@ -90,7 +90,7 @@ class DodecahedralSampler:
 
         # for vertices 6-9, simply rotate first vertex by (2 * pi / 5) or 72 deg
         for i in range(1, 5):
-            vertices.append(rotate_on_axis(vertices[5], "y", i * math.pi * 2 / 5))
+            vertices.append(utils.rotate_on_axis(vertices[5], "y", i * math.pi * 2 / 5))
 
         # flip northern hemisphere to form southern hemisphere
         for i in range(9,0,-1):
