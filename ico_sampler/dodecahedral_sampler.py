@@ -33,7 +33,7 @@ class DodecahedralSampler:
         radius = 1.0
         self.vertices = self.get_vertices(radius)
         self.centres = self.get_centres(radius)
-
+        
         # faces - level 0
         self.faces = np.array([
             [0,1,2,3,4,],                                                                               # top
@@ -44,7 +44,7 @@ class DodecahedralSampler:
 
     # =============================================== EDGE LENGTH ======================================================
     @property
-    def edge_length(self) -> float:
+    def edge_length(self, radius: float = 1.0) -> float:
         """
         Compute the dodecahedron edge length in 3D (XYZ). Assumes that all edges have the same length.
 
@@ -52,7 +52,7 @@ class DodecahedralSampler:
             edge length (scalar)
         """
 
-        return (np.sqrt(5) - 1) / np.sqrt(3)
+        return (np.sqrt(5) - 1) / np.sqrt(3) * radius
 
     # =============================================== GET VERTICES =====================================================
     def get_vertices(self, radius: float = 1.0) -> np.ndarray:
@@ -73,7 +73,7 @@ class DodecahedralSampler:
         vertices = []
 
         # for first vertex - solve for y0 = -y4 , which is the absolute y-coordinate of top and bottom face
-        top_circumradius = edge_length / (2 * math.sin(math.pi / 5))
+        top_circumradius = self.edge_length(radius) / (2 * math.sin(math.pi / 5))
         y0 = (1 - top_circumradius ** 2) ** 0.5
         z0 = (1 - y0 ** 2) ** 0.5
         vertices.append(np.array([0, y0, z0]))
