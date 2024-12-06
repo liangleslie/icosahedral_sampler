@@ -31,10 +31,8 @@ class DodecahedralSampler:
 
         # unit sphere
         radius = 1.0
-        self.vertices = self.get_vertices(radius)
-        self.centres = self.get_centres(radius)
+        self.edge_length = (np.sqrt(5) - 1) / np.sqrt(3) * radius
         
-        # faces - level 0
         self.faces = np.array([
             [0,1,2,3,4,],                                                                               # top
             [0,5,11,6,1,],[1,6,10,7,2,],[2,7,14,8,3,],[3,8,13,9,4,],[4,9,12,5,0,],                      # upper hemisphere
@@ -42,17 +40,8 @@ class DodecahedralSampler:
             [19,18,17,16,15,]                                                                           # bottom
         ])
 
-    # =============================================== EDGE LENGTH ======================================================
-    @property
-    def edge_length(self, radius: float = 1.0) -> float:
-        """
-        Compute the dodecahedron edge length in 3D (XYZ). Assumes that all edges have the same length.
-
-        Returns:
-            edge length (scalar)
-        """
-
-        return (np.sqrt(5) - 1) / np.sqrt(3) * radius
+        self.vertices = self.get_vertices(radius)
+        self.centres = self.get_centres(radius)
 
     # =============================================== GET VERTICES =====================================================
     def get_vertices(self, radius: float = 1.0) -> np.ndarray:
@@ -73,7 +62,7 @@ class DodecahedralSampler:
         vertices = []
 
         # for first vertex - solve for y0 = -y4 , which is the absolute y-coordinate of top and bottom face
-        top_circumradius = self.edge_length(radius) / (2 * math.sin(math.pi / 5))
+        top_circumradius = self.edge_length / (2 * math.sin(math.pi / 5))
         y0 = (1 - top_circumradius ** 2) ** 0.5
         z0 = (1 - y0 ** 2) ** 0.5
         vertices.append(np.array([0, y0, z0]))
@@ -84,7 +73,7 @@ class DodecahedralSampler:
 
         # solve for y5, which is the absolute y-coordinate of the middle vertices
         _ratio = (math.cos(math.radians(54)) + math.sin(math.radians(72))) / (math.sin(math.radians(72)))
-        y5 = (_ratio - 1) / (_ratio + 1) * y1
+        y5 = (_ratio - 1) / (_ratio + 1) * y0
         z5 = (1 - y5 ** 2) ** 0.5
         vertices.append(np.array([0, y5, z5]))
 
@@ -93,15 +82,12 @@ class DodecahedralSampler:
             vertices.append(utils.rotate_on_axis(vertices[5], "y", i * math.pi * 2 / 5))
 
         # flip northern hemisphere to form southern hemisphere
-        for i in range(9,0,-1):
+        for i in range(9,-1,-1):
             vertices.append(np.array([-vertices[i][0], -vertices[i][1], -vertices[i][2]]))
 
-        """ old stuff
-        # scale vertices
         vertices = np.array(vertices) # shape [12, 3]
         vertices /= np.linalg.norm(vertices, axis=-1, keepdims=True)
         vertices *= radius
-        """
 
         return vertices
 
@@ -122,9 +108,11 @@ class DodecahedralSampler:
         """
         centres = []
         for face in self.faces:
-            face_vertices = [self.vertices[i] for i in face]
+            face_vertices = [self.vertices[vertex] for vertex in face]
             face_centre = np.mean(face_vertices, axis=0)
             centres.append(face_centre)
+        
+        centres = np.array(centres)
         return centres
 
     # =============================================== GET TRIANGLE COORDS ==============================================
