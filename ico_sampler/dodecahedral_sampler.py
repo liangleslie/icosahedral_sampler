@@ -30,6 +30,7 @@ class DodecahedralSampler:
         self.resolution = resolution
 
         # unit sphere
+        self.radius = 1.0
         self.unit_edge_length = (np.sqrt(5) - 1) / np.sqrt(3) * self.radius
         
         self.faces = np.array([
