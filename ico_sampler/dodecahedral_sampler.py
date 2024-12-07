@@ -214,8 +214,6 @@ class DodecahedralSampler:
         Returns:
             coordinates in 3D of a given face of the dodecahedron
         """
-        triangle_map = [[0,1], [1,2], [2,3], [3,4], [4,0]]
-
         vertex_xyz = self.vertices[self.faces[face_no]]
 
         # get face center in XYZ
@@ -226,7 +224,7 @@ class DodecahedralSampler:
         # generate regular pentagon and scale to edge length
         is_up = True if (0<face_no<6) | (face_no == 11) else False
         xyz = self.get_pentagon_coords(self.resolution, is_up, normalize=True, homogeneous=True, center=True)
-        xyz[:, :2] *= self.resolution / self.unit_edge_length  # scale to edge length
+        xyz[:, :2] *= self.resolution # scale to edge length
         xyz[:, 2]  *= norm
 
         # rotate triangle to
