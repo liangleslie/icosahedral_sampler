@@ -30,8 +30,7 @@ class DodecahedralSampler:
         self.resolution = resolution
 
         # unit sphere
-        radius = 1.0
-        self.unit_edge_length = (np.sqrt(5) - 1) / np.sqrt(3)
+        self.unit_edge_length = (np.sqrt(5) - 1) / np.sqrt(3) * self.radius
         
         self.faces = np.array([
             [0,1,2,3,4,],                                                                               # top
@@ -71,9 +70,9 @@ class DodecahedralSampler:
         """
 
         vertices = []
-        edge_length = self.edge_length
+        edge_length = self.unit_edge_length
         # for first vertex - solve for y0 = -y4 , which is the absolute y-coordinate of top and bottom face
-        top_circumradius = unit_edge_length / (2 * math.sin(math.pi / 5))
+        top_circumradius = edge_length / (2 * math.sin(math.pi / 5))
         y0 = (1 - top_circumradius ** 2) ** 0.5
         z0 = (1 - y0 ** 2) ** 0.5
         vertices.append(np.array([0, y0, z0]))
