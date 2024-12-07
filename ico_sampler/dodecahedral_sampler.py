@@ -40,8 +40,8 @@ class DodecahedralSampler:
             [19,18,17,16,15,]                                                                           # bottom
         ])
 
-        self.vertices = self.get_vertices(radius)
-        self.centres = self.get_centres(radius)
+        self.vertices = self.get_vertices(self.radius)
+        self.centres = self.get_centres(self.radius)
 
     # =============================================== EDGE LENGTH ======================================================
     @property
