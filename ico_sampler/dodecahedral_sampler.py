@@ -31,6 +31,7 @@ class DodecahedralSampler:
 
         # unit sphere
         radius = 1.0
+        self.unit_edge_length = (np.sqrt(5) - 1) / np.sqrt(3)
         
         self.faces = np.array([
             [0,1,2,3,4,],                                                                               # top
@@ -70,7 +71,7 @@ class DodecahedralSampler:
         """
 
         vertices = []
-        unit_edge_length = (np.sqrt(5) - 1) / np.sqrt(3) * radius
+        edge_length = self.edge_length
         # for first vertex - solve for y0 = -y4 , which is the absolute y-coordinate of top and bottom face
         top_circumradius = unit_edge_length / (2 * math.sin(math.pi / 5))
         y0 = (1 - top_circumradius ** 2) ** 0.5
@@ -225,7 +226,7 @@ class DodecahedralSampler:
         # generate regular pentagon and scale to edge length
         is_up = True if (0<face_no<6) | (face_no == 11) else False
         xyz = self.get_pentagon_coords(self.resolution, is_up, normalize=True, homogeneous=True, center=True)
-        xyz[:, :2] *= self.edge_length  # scale to edge length
+        xyz[:, :2] *= self.resolution / self.unit_edge_length  # scale to edge length
         xyz[:, 2]  *= norm
 
         # rotate triangle to
