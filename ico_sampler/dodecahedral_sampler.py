@@ -51,7 +51,7 @@ class DodecahedralSampler:
         Returns:
             edge length (scalar)
         """
-        return np.sqrt(np.sum((self.vertices[0] - self.vertices[1]) ** 2))
+        return self.unit_edge_length * self.resolution
 
     # =============================================== GET VERTICES =====================================================
     def get_vertices(self, radius: float = 1.0) -> np.ndarray:
