@@ -219,8 +219,9 @@ class IcosahedralSampler:
         xy = self.__get_triangle_coords(self.resolution, is_up, normalize=False, homogeneous=False, center=False)
 
         triangle_height = 3**0.5/2
-        canvas = np.zeros([int(self.resolution*triangle_height), self.resolution, 3], dtype=np.uint8)
-        canvas[xy[:, 1], xy[:, 0]] = colors
+        canvas = np.zeros([int(self.resolution*triangle_height), self.resolution, 4], dtype=np.uint8)
+        canvas[xy[:, 1], xy[:, 0],2::-1] = colors
+        canvas[xy[:, 1], xy[:, 0], 3] = 255  # Set alpha to opaque where color is present
         return canvas
 
     # =============================================== UNWRAP ===========================================================
@@ -243,7 +244,7 @@ class IcosahedralSampler:
 
         colors = [self.get_face_rgb(i, eq_image) for i in range(20)]
         h_res = int(3**0.5/2*self.resolution)
-        canvas = np.ones([3*h_res, int(5.5*self.resolution), 3], dtype=np.uint8)*255
+        canvas = np.zeros([3*h_res, int(5.5*self.resolution), 4], dtype=np.uint8)
 
         # coordinates for moving the color from faces to canvas
         xy_up   = self.__get_triangle_coords(self.resolution, True, normalize=False, homogeneous=False, center=False)
@@ -253,13 +254,17 @@ class IcosahedralSampler:
 
         # move colors from faces to canvas
         for num, loc in loc_generator:
-            canvas[xy_up[..., 1],  int((loc+0.5)*self.resolution)+xy_up[..., 0]] = colors[num]
+            canvas[xy_up[..., 1],  int((loc+0.5)*self.resolution)+xy_up[..., 0],2::-1] = colors[num]
+            canvas[xy_up[..., 1],  int((loc+0.5)*self.resolution)+xy_up[..., 0],3] = 255
         for num, loc in loc_generator:
-            canvas[h_res+xy_down[..., 1], int((loc+0.5)*self.resolution)+xy_down[..., 0]] = colors[5+num]
+            canvas[h_res+xy_down[..., 1], int((loc+0.5)*self.resolution)+xy_down[..., 0],2::-1] = colors[5+num]
+            canvas[h_res+xy_down[..., 1], int((loc+0.5)*self.resolution)+xy_down[..., 0],3] = 255
         for num, loc in loc_generator:
-            canvas[h_res+xy_up[..., 1], loc*self.resolution+xy_up[..., 0]] = colors[10+num]
+            canvas[h_res+xy_up[..., 1], loc*self.resolution+xy_up[..., 0],2::-1] = colors[10+num]
+            canvas[h_res+xy_up[..., 1], loc*self.resolution+xy_up[..., 0],3] = 255
         for num, loc in loc_generator:
-            canvas[2*h_res+xy_down[..., 1], loc*self.resolution+xy_down[..., 0]] = colors[15+num]
+            canvas[2*h_res+xy_down[..., 1], loc*self.resolution+xy_down[..., 0],2::-1] = colors[15+num]
+            canvas[2*h_res+xy_down[..., 1], loc*self.resolution+xy_down[..., 0],3] = 255
 
         return canvas
 
