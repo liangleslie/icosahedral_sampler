@@ -5,8 +5,8 @@ Initial python code for Isocahedral from [rdbch](https://github.com/rdbch/icosah
 Insipration taken from [here](http://www.paulbourke.net/panorama/icosahedral/).
 If you find this useful, please consider giving it a star ⭐
 
-<img src="./assets/ico_output.png" width="500">
-<img src="./assets/dode_output.png" width="500">
+<img src="./assets/ico_output.png" width="400">
+<img src="./assets/dode_output.png" width="400">
 
 ## Installation
 This code was developed using ```python 3.8```, however it should run on anything that has  >= ```python 3.6```.
@@ -48,7 +48,8 @@ face_colors = sampler.get_face_rgb(face_no=0, eq_image=eq_image)
 One can run the provided sample notebook ([isocahedron](./examples.ipynb) and [dodecahedron](./dode_example.ipynb)) to see exactly how the code works.
 One can create shift the output image by specifying the _face_offset_ when calling ```sampler.unwrap()``` or _rotation_offset_ when calling ```sampler.unwrap()```:
 
-![im](./assets/ico_fig.gif)
+<img src="./assets/ico_fig.gif" width="400">
+<img src="./assets/dode_fig.gif" width="400">
 
 
 ## Command line
