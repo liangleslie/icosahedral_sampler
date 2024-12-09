@@ -221,6 +221,7 @@ class DodecahedralSampler:
         """
         Method that generates the xyz coordinates of a face.
         These points can be later used to be projected onto the sphere and sample the color from the equirectangular image texture.
+        Output xyz will be rotated by rotation_offset, in case it needs to be re-orientated.
 
         Arguments:
             face_no: face number (0-11)
@@ -258,13 +259,15 @@ class DodecahedralSampler:
         return pentagon_xyz
 
     # =============================================== GET FACE RGB =====================================================
-    def get_face_rgb(self, face_no, eq_image):
+    def get_face_rgb(self, face_no, eq_image, rotation_offset = 0):
         """
         Utility method that uses the gnomonic projection to get rgb colors of a face given an equirectangular image.
+        Output rgb will be rotated by rotation_offset, in case it needs to be re-orientated.
 
         Arguments:
             face_no: face number to be returned
             eq_image: equirectangular image
+            rotation_offset: rotational offset in radians
 
         Returns:
             color sampled from equirectangular images [N, 3]
@@ -278,28 +281,31 @@ class DodecahedralSampler:
 
         # rotate to face center
         phi, theta = utils.xyz_2_polar(ray_xyz)
+        phi += rotation_offset # rotate along vertical axis
         x, y = utils.polar_2_equi(phi, theta, eq_image.shape)
 
-        rgb = eq_image[y.astype(int), x.astype(int)]
+        rgb = eq_image[y.astype(int) % eq_image.shape[0], x.astype(int) % eq_image.shape[1]]
 
         #TODO add interpolation
         return rgb
 
     # =============================================== GET FACE IMAGE ===================================================
-    def get_face_image(self, face_no, eq_image):
+    def get_face_image(self, face_no, eq_image, rotation_offset = 0):
         """
         Project the plane of a face on the sphere and sample the colors.
+        Output image will be rotated by rotation_offset, in case it needs to be re-orientated.
 
         Arguments:
             face_no: face number
             eq_image: equirectangular image to sample from
+            rotation_offset: rotational offset in radians
 
         Returns:
             RGB image of the face
         """
 
         utils.check_eq_image_shape(eq_image)
-        colors = self.get_face_rgb(face_no, eq_image)
+        colors = self.get_face_rgb(face_no, eq_image, rotation_offset)
 
         # skew matrix build
         vertex_xyz = self.vertices[self.faces[face_no]]
@@ -318,13 +324,15 @@ class DodecahedralSampler:
         return canvas
 
     # =============================================== UNWRAP ===========================================================
-    def unwrap(self, eq_image):
+    def unwrap(self, eq_image, rotation_offset = 0):
         """
         Project an equirectangular image onto an dodecahedron and unwrapped it onta a plane surface. The resolution of
         the output images will be computed based on the resolution provided at the creation of the object.
+        Output image will be rotated by rotation_offset, in case it needs to be re-orientated.
 
         Arguments:
             eq_image: equirectangular image to be samples from
+            rotation_offset: rotational offset in radians
 
         Returns:
             unwrapped dodecahedron with colors sampled from the equirectangular image.
@@ -333,8 +341,7 @@ class DodecahedralSampler:
         # input check
         utils.check_eq_image_shape(eq_image)
 
-        # TODO: implement offset via get_face_xyz; apply (x,y,z) rotation on full image
-        colors = [self.get_face_rgb(i, eq_image) for i in range(12)]
+        colors = [self.get_face_rgb(i, eq_image, rotation_offset) for i in range(12)]
 
         scaled_edge_length = self.resolution # set base resolution as edge_length
         # consider a mini right-angle triangle with height=h, length=l, and hypothenuse=edge_length, and angle = 72deg
