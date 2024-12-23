@@ -32,6 +32,15 @@ class DodecahedralSampler:
 
         self.resolution = resolution
 
+        # key constants based on defined resolution
+        self.scaled_edge_length = resolution # set base resolution as edge_length
+        # consider a mini right-angle triangle with height=h, length=l, and hypothenuse=edge_length, and angle = 72deg
+        self.h = self.scaled_edge_length * np.sin(np.pi / 5 * 2)
+        self.l = self.scaled_edge_length * np.cos(np.pi / 5 * 2)
+        self.pentagon_l = int(2 * self.l + self.scaled_edge_length)
+        self.height_to_centre = self.scaled_edge_length / (2 * np.tan(np.pi / 5))
+        self.pentagon_h = int(self.height_to_centre + self.scaled_edge_length / (2 * np.sin(np.pi / 5)))
+
         self.faces = np.array([
             [0,1,2,3,4,],                                                                               # top
             [0,5,11,6,1,],[1,6,10,7,2,],[2,7,14,8,3,],[3,8,13,9,4,],[4,9,12,5,0,],                      # upper hemisphere
@@ -162,23 +171,13 @@ class DodecahedralSampler:
         Returns:
             xy coordinates of the points lying inside the pentagon
         """
-        scaled_edge_length = base_resolution # set base resolution as edge_length
-
-        # consider a mini right-angle triangle with height=h, length=l, and hypothenuse=edge_length, and angle = 72deg
-        h = scaled_edge_length * np.sin(np.pi / 5 * 2)
-        l = scaled_edge_length * np.cos(np.pi / 5 * 2)
-        pentagon_l = int(2 * l + scaled_edge_length)
-
-        height_to_centre = scaled_edge_length / (2 * np.tan(np.pi / 5))
-        pentagon_h = int(height_to_centre + scaled_edge_length / (2 * np.sin(np.pi / 5)))
-
         # # define triangles in pentagon // not needed, keeping as backup
         # up_pentagon_triangles = np.array([
-        #             [[x/2, height_to_centre],[l,0],[x-l,0],],
-        #             [[x/2, height_to_centre],[0,h],[l,0],],
-        #             [[x/2, height_to_centre],[x/2, y],[0,h],],
-        #             [[x/2, height_to_centre],[x,h],[x/2, y],],
-        #             [[x/2, height_to_centre],[x-l,0],[x,h],],
+        #             [[x/2, self.height_to_centre],[self.l,0],[self.pentagon_l - self.l,0],],
+        #             [[x/2, self.height_to_centre],[0,self.h],[self.l,0],],
+        #             [[x/2, self.height_to_centre],[self.pentagon_l/2, self.pentagon_h],[0,self.h],],
+        #             [[x/2, self.height_to_centre],[self.pentagon_l,self.h],[self.pentagon_l/2, self.pentagon_h],],
+        #             [[x/2, self.height_to_centre],[self.pentagon_l-self.l,0],[self.pentagon_l,self.h],],
         #         ])
         # down_pentagon_triangles = y-up_pentagon_triangles
         # # triangle contains 2 arrays for upright and upside down pentagons, each with 5 vertices, each described by 3 coordinates
@@ -187,27 +186,27 @@ class DodecahedralSampler:
 
         # define points of the pentagon
         pentagon = np.array([
-            [[l,0],[pentagon_l-l,0],[pentagon_l,h],[pentagon_l/2, pentagon_h],[0,h]], # up pentagon
-            [[l,pentagon_h],[pentagon_l-l,pentagon_h],[pentagon_l,pentagon_h-h],[pentagon_l/2, 0],[0,pentagon_h-h]], # down pentagon
+            [[self.l,0],[self.pentagon_l-self.l,0],[self.pentagon_l,self.h],[self.pentagon_l/2, self.pentagon_h],[0,self.h]], # up pentagon
+            [[self.l,self.pentagon_h],[self.pentagon_l-self.l,self.pentagon_h],[self.pentagon_l,self.pentagon_h-self.h],[self.pentagon_l/2, 0],[0,self.pentagon_h-self.h]], # down pentagon
         ])
         pentagon = pentagon.astype(np.int32)
 
         # rasterize pentagon (could also be done with analytically, but this is way more elegant)
-        canvas = np.zeros([pentagon_h, pentagon_l], dtype=np.uint8)
+        canvas = np.zeros([self.pentagon_h, self.pentagon_l], dtype=np.uint8)
         canvas = cv2.drawContours(canvas, [*pentagon], int(is_up), color=1, thickness=-1)
         coords = np.argwhere(canvas == 1)[:, ::-1]
 
         # center coordinates in weight center
         if center:
-            coords[..., 0] -= pentagon_l // 2
+            coords[..., 0] -= self.pentagon_l // 2
             if is_up:
-                coords[..., 1] -= int(pentagon_h - height_to_centre)
+                coords[..., 1] -= int(self.pentagon_h - self.height_to_centre)
             else:
-                coords[..., 1] -= int(height_to_centre)
+                coords[..., 1] -= int(self.height_to_centre)
 
         # normalize coordinates in interval [0, 1]
         if normalize:
-            coords = coords / pentagon_l
+            coords = coords / self.pentagon_l
 
         # add homogeneous axis
         if homogeneous:
@@ -241,8 +240,7 @@ class DodecahedralSampler:
         # generate regular pentagon and scale to edge length
         xyz = self.get_pentagon_coords(self.resolution, self.get_is_up(face_no), normalize=True, homogeneous=True, center=True)
 
-        l = self.resolution * np.cos(np.pi / 5 * 2)
-        xy_scale_factor = 2 * l + self.resolution
+        xy_scale_factor = 2 * self.l + self.resolution
         xyz[:, :2] *= xy_scale_factor # scale to length of x
 
         top_circumradius = self.resolution / (2 * np.sin(np.pi / 5))
@@ -311,13 +309,7 @@ class DodecahedralSampler:
         vertex_xyz = self.vertices[self.faces[face_no]]
         xy = self.get_pentagon_coords(self.resolution, self.get_is_up(face_no), normalize=False, homogeneous=False, center=False)
 
-        # consider a mini right-angle triangle with height=h, length=l, and hypothenuse=edge_length, and angle = 72deg
-        l = self.resolution * np.cos(np.pi / 5 * 2)
-        pentagon_l = int(2 * l + self.resolution)
-        height_to_centre = self.resolution / (2 * np.tan(np.pi / 5))
-        pentagon_h = int(height_to_centre + self.resolution / (2 * np.sin(np.pi / 5)))
-
-        canvas = np.zeros([pentagon_h, pentagon_l, 4], dtype=np.uint8)
+        canvas = np.zeros([self.pentagon_h, self.pentagon_l, 4], dtype=np.uint8)
         canvas[xy[:, 1], xy[:, 0],2::-1] = colors
         canvas[xy[:, 1], xy[:, 0], 3] = 255  # Set alpha to opaque where color is present
 
@@ -343,16 +335,8 @@ class DodecahedralSampler:
 
         colors = [self.get_face_rgb(i, eq_image, rotation_offset) for i in range(12)]
 
-        scaled_edge_length = self.resolution # set base resolution as edge_length
-        # consider a mini right-angle triangle with height=h, length=l, and hypothenuse=edge_length, and angle = 72deg
-        h = scaled_edge_length * np.sin(np.pi / 5 * 2)
-        l = scaled_edge_length * np.cos(np.pi / 5 * 2)
-        pentagon_l = int(2 * l + scaled_edge_length)
-        height_to_centre = scaled_edge_length / (2 * np.tan(np.pi / 5))
-        pentagon_h = int(height_to_centre + scaled_edge_length / (2 * np.sin(np.pi / 5)))
-
-        canvas_length = int(3*(pentagon_l+self.resolution)+l)
-        canvas_height = int(2*pentagon_h+h)
+        canvas_length = int(3*(self.pentagon_l + self.resolution)+self.l)
+        canvas_height = int(2*self.pentagon_h + self.h)
 
         canvas = np.zeros([canvas_height, canvas_length, 4], dtype=np.uint8)
 
@@ -362,8 +346,9 @@ class DodecahedralSampler:
 
         # move colors from faces to canvas
         # top face, i.e face 0
-        face_0_x_offset = int(pentagon_l-l)
-        face_0_y_offset = int(pentagon_h)
+        face_0_x_offset = int(self.pentagon_l-self.l)
+        face_0_y_offset = int(self.pentagon_h)
+
         canvas[xy_down[..., 1] + face_0_y_offset, xy_down[..., 0] + face_0_x_offset, 2::-1] = colors[0]
         canvas[xy_down[..., 1] + face_0_y_offset, xy_down[..., 0] + face_0_x_offset, 3] = 255
 
@@ -371,15 +356,15 @@ class DodecahedralSampler:
         for num in range(5):
             face = 1+num
             rotational_offset = -np.pi / 5 - num * (np.pi * 2 / 5)
-            upper_x_offset = face_0_x_offset + 2*height_to_centre*np.sin(rotational_offset)
-            upper_y_center_offset = height_to_centre - scaled_edge_length / (2 * np.sin(np.pi / 5))
-            upper_y_offset = face_0_y_offset + upper_y_center_offset + 2*height_to_centre*np.cos(rotational_offset)
+            upper_x_offset = face_0_x_offset + 2*self.height_to_centre*np.sin(rotational_offset)
+            upper_y_center_offset = self.height_to_centre - self.scaled_edge_length / (2 * np.sin(np.pi / 5))
+            upper_y_offset = face_0_y_offset + upper_y_center_offset + 2*self.height_to_centre*np.cos(rotational_offset)
             canvas[xy_up[..., 1] + int(upper_y_offset), xy_up[..., 0] + int(upper_x_offset), 2::-1] = colors[face]
             canvas[xy_up[..., 1] + int(upper_y_offset), xy_up[..., 0] + int(upper_x_offset), 3] = 255
 
         # bottom face, i.e. face 11
-        face_11_x_offset = int(2*(pentagon_l+self.resolution))
-        face_11_y_offset = int(h)
+        face_11_x_offset = int(2*(self.pentagon_l+self.resolution))
+        face_11_y_offset = int(self.h)
         canvas[xy_up[..., 1] + face_11_y_offset, xy_up[..., 0] + face_11_x_offset, 2::-1] = colors[11]
         canvas[xy_up[..., 1] + face_11_y_offset, xy_up[..., 0] + face_11_x_offset, 3] = 255
 
@@ -387,10 +372,76 @@ class DodecahedralSampler:
         for num in range(5):
             face = 6+num
             rotational_offset = np.pi * 1 / 5 - num * (np.pi * 2 / 5)
-            lower_x_offset = face_11_x_offset + 2*height_to_centre*np.sin(rotational_offset)
-            lower_y_center_offset = height_to_centre - scaled_edge_length / (2 * np.sin(np.pi / 5))
-            lower_y_offset = face_11_y_offset - lower_y_center_offset - 2*height_to_centre*np.cos(rotational_offset)
+            lower_x_offset = face_11_x_offset + 2*self.height_to_centre*np.sin(rotational_offset)
+            lower_y_center_offset = self.height_to_centre - self.scaled_edge_length / (2 * np.sin(np.pi / 5))
+            lower_y_offset = face_11_y_offset - lower_y_center_offset - 2*self.height_to_centre*np.cos(rotational_offset)
             canvas[xy_down[..., 1] + int(lower_y_offset), xy_down[..., 0] + int(lower_x_offset), 2::-1] = colors[face]
             canvas[xy_down[..., 1] + int(lower_y_offset), xy_down[..., 0] + int(lower_x_offset), 3] = 255
 
         return canvas
+
+    # =============================================== UNWRAP ===========================================================
+    def half_unwrap(self, eq_image, rotation_offset = 0):
+        """
+        Project an equirectangular image onto an dodecahedron and unwrapped it onta a plane surface. The resolution of
+        the output images will be computed based on the resolution provided at the creation of the object.
+        Output image will be rotated by rotation_offset, in case it needs to be re-orientated.
+
+        Arguments:
+            eq_image: equirectangular image to be samples from
+            rotation_offset: rotational offset in radians
+
+        Returns:
+            unwrapped dodecahedron with colors sampled from the equirectangular image in 2 canvases
+        """
+
+        # input check
+        utils.check_eq_image_shape(eq_image)
+
+        colors = [self.get_face_rgb(i, eq_image, rotation_offset) for i in range(12)]
+
+        canvas_length = int(2*self.pentagon_l + self.resolution)
+        canvas_height = int(2*self.pentagon_h + self.h)
+
+        canvas_upper = np.zeros([canvas_height, canvas_length, 4], dtype=np.uint8)
+        canvas_lower = np.zeros([canvas_height, canvas_length, 4], dtype=np.uint8)
+
+        # coordinates for moving the color from faces to canvas
+        xy_up   = self.get_pentagon_coords(self.resolution, True, normalize=False, homogeneous=False, center=False)
+        xy_down = self.get_pentagon_coords(self.resolution, False, normalize=False, homogeneous=False, center=False)
+
+        # move colors from faces to canvas
+        # top face, i.e face 0
+        face_0_x_offset = int(self.pentagon_l-self.l)
+        face_0_y_offset = int(self.pentagon_h)
+
+        canvas_lower[xy_down[..., 1] + face_0_y_offset, xy_down[..., 0] + face_0_x_offset, 2::-1] = colors[0]
+        canvas_lower[xy_down[..., 1] + face_0_y_offset, xy_down[..., 0] + face_0_x_offset, 3] = 255
+
+        # upper faces, i.e. faces 1-5
+        for num in range(5):
+            face = 1+num
+            rotational_offset = -np.pi / 5 - num * (np.pi * 2 / 5)
+            upper_x_offset = face_0_x_offset + 2*self.height_to_centre*np.sin(rotational_offset)
+            upper_y_center_offset = self.height_to_centre - self.scaled_edge_length / (2 * np.sin(np.pi / 5))
+            upper_y_offset = face_0_y_offset + upper_y_center_offset + 2*self.height_to_centre*np.cos(rotational_offset)
+            canvas_lower[xy_up[..., 1] + int(upper_y_offset), xy_up[..., 0] + int(upper_x_offset), 2::-1] = colors[face]
+            canvas_lower[xy_up[..., 1] + int(upper_y_offset), xy_up[..., 0] + int(upper_x_offset), 3] = 255
+
+        # bottom face, i.e. face 11
+        face_11_x_offset = int(self.l + self.resolution)
+        face_11_y_offset = int(self.h)
+        canvas_upper[xy_up[..., 1] + face_11_y_offset, xy_up[..., 0] + face_11_x_offset, 2::-1] = colors[11]
+        canvas_upper[xy_up[..., 1] + face_11_y_offset, xy_up[..., 0] + face_11_x_offset, 3] = 255
+
+        # upper faces, i.e. faces 6-10
+        for num in range(5):
+            face = 6+num
+            rotational_offset = np.pi * 1 / 5 - num * (np.pi * 2 / 5)
+            lower_x_offset = face_11_x_offset + 2*self.height_to_centre*np.sin(rotational_offset)
+            lower_y_center_offset = self.height_to_centre - self.scaled_edge_length / (2 * np.sin(np.pi / 5))
+            lower_y_offset = face_11_y_offset - lower_y_center_offset - 2*self.height_to_centre*np.cos(rotational_offset)
+            canvas_upper[xy_down[..., 1] + int(lower_y_offset), xy_down[..., 0] + int(lower_x_offset), 2::-1] = colors[face]
+            canvas_upper[xy_down[..., 1] + int(lower_y_offset), xy_down[..., 0] + int(lower_x_offset), 3] = 255
+
+        return (canvas_lower, canvas_upper)
