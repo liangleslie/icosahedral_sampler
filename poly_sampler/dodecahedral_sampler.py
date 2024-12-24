@@ -40,6 +40,7 @@ class DodecahedralSampler:
         self.pentagon_l = int(2 * self.l + self.scaled_edge_length)
         self.height_to_centre = self.scaled_edge_length / (2 * np.tan(np.pi / 5))
         self.pentagon_h = int(self.height_to_centre + self.scaled_edge_length / (2 * np.sin(np.pi / 5)))
+        self.circumradius = int(self.scaled_edge_length / (2 * np.sin(np.pi / 5)))
 
         self.faces = np.array([
             [0,1,2,3,4,],                                                                               # top
@@ -385,7 +386,7 @@ class DodecahedralSampler:
         """
         Project an equirectangular image onto an dodecahedron and unwrapped it onta a plane surface. The resolution of
         the output images will be computed based on the resolution provided at the creation of the object.
-        Output image will be rotated by rotation_offset, in case it needs to be re-orientated.
+        Output will be in 2 halves and will be rotated by rotation_offset, in case it needs to be re-orientated.
 
         Arguments:
             eq_image: equirectangular image to be samples from
@@ -445,3 +446,160 @@ class DodecahedralSampler:
             canvas_upper[xy_down[..., 1] + int(lower_y_offset), xy_down[..., 0] + int(lower_x_offset), 3] = 255
 
         return (canvas_lower, canvas_upper)
+
+    def rotate_face_rgb(self, rgb, rotation_deg, is_up):
+        padded_rgb = np.zeros([2*self.circumradius, 2*self.circumradius, 4], dtype=np.uint8)  # Square canvas
+
+        # position image with centre of pentagon at the centre of the square
+        # Calculate padding
+        padding_top = 0 if is_up else int(self.circumradius - self.height_to_centre)
+        padding_left = int((self.circumradius - self.pentagon_l / 2))
+
+        # coordinates for moving the color from faces to canvas
+        xy   = self.get_pentagon_coords(self.resolution, is_up, normalize=False, homogeneous=False, center=False)
+
+        # Apply padding using slicing (consider edge cases)
+        # Start and End Index + Padding (clip the index if they are out of bounds)
+        padded_rgb[xy[..., 1] + padding_top, xy[..., 0] + padding_left, 2::-1] = rgb
+        padded_rgb[xy[..., 1] + padding_top, xy[..., 0] + padding_left, 3] = 255
+
+        # # Rotation
+        rotation_matrix = cv2.getRotationMatrix2D((self.circumradius, self.circumradius), rotation_deg, 1)
+        rotated_canvas = cv2.warpAffine(padded_rgb, rotation_matrix, (self.circumradius*2, self.circumradius*2))
+
+        return rotated_canvas
+
+    # =============================================== UNWRAP ===========================================================
+    def a4_optimised_unwrap(self, eq_image, rotation_offset = 0):
+        """
+        Project an equirectangular image onto an dodecahedron and unwrapped it onta a plane surface. The resolution of
+        the output images will be computed based on the resolution provided at the creation of the object.
+        Output image will be rotated by rotation_offset, in case it needs to be re-orientated.
+        Output net is optimised to fit within an ISO A4 paper
+
+        Arguments:
+            eq_image: equirectangular image to be samples from
+            rotation_offset: rotational offset in radians
+
+        Returns:
+            unwrapped dodecahedron with colors sampled from the equirectangular image.
+        """
+
+        def rotate_face_rgb(rgb, rotation_deg, is_up):
+            padded_rgb = np.zeros([2*self.circumradius, 2*self.circumradius, 4], dtype=np.uint8)  # Square canvas
+
+            # position image with centre of pentagon at the centre of the square
+            # Calculate padding
+            padding_top = 0 if is_up else int(self.circumradius - self.height_to_centre)
+            padding_left = int((self.circumradius - self.pentagon_l / 2))
+
+            # coordinates for moving the color from faces to canvas
+            xy   = self.get_pentagon_coords(self.resolution, is_up, normalize=False, homogeneous=False, center=False)
+
+            # Apply padding using slicing (consider edge cases)
+            # Start and End Index + Padding (clip the index if they are out of bounds)
+            padded_rgb[xy[..., 1] + padding_top, xy[..., 0] + padding_left, 2::-1] = rgb
+            padded_rgb[xy[..., 1] + padding_top, xy[..., 0] + padding_left, 3] = 255
+
+            # # Rotation
+            rotation_matrix = cv2.getRotationMatrix2D((self.circumradius, self.circumradius), rotation_deg, 1)
+            rotated_canvas = cv2.warpAffine(padded_rgb, rotation_matrix, (self.circumradius*2, self.circumradius*2))
+
+            return rotated_canvas
+
+        # input check
+        utils.check_eq_image_shape(eq_image)
+
+        colors = [self.get_face_rgb(i, eq_image, rotation_offset) for i in range(12)]
+
+        canvas_length = int(3*(self.pentagon_l + self.scaled_edge_length)+self.l)
+        canvas_height = int(2*self.pentagon_h + self.h)
+
+        canvas = np.zeros([canvas_height, canvas_length, 4], dtype=np.uint8)
+
+        # coordinates for moving the color from faces to canvas
+        xy_up   = self.get_pentagon_coords(self.resolution, True, normalize=False, homogeneous=False, center=False)
+        xy_down = self.get_pentagon_coords(self.resolution, False, normalize=False, homogeneous=False, center=False)
+        padding_top = int(self.circumradius - self.height_to_centre)
+        padding_left = int((self.circumradius - self.pentagon_l / 2))
+
+        # move colors from faces to canvas
+        # top face, i.e face 0
+        face_0_x_offset = int(2*self.pentagon_l + self.scaled_edge_length - self.l)
+        face_0_y_offset = int(self.pentagon_h + self.h)
+        face_0_rotation_offset = 0
+        rotated_canvas = rotate_face_rgb(colors[0], face_0_rotation_offset, self.get_is_up(0))
+        rotated_rgba = rotated_canvas[xy_down[..., 1] + padding_top, xy_down[..., 0] + padding_left]
+        canvas[xy_down[..., 1] + face_0_y_offset, xy_down[..., 0] + face_0_x_offset] = rotated_rgba
+
+        # upper faces, i.e. faces 1-5
+        for num in range(5):
+            face = 1+num
+            rotational_offset = -72 + 36 * (num)
+            if face == 1:
+                upper_y_offset = int(face_0_y_offset)
+                upper_x_offset = int(face_0_x_offset - 3 * self.pentagon_l / 2 + self.l)
+            elif face == 2:
+                upper_y_offset = int(face_0_y_offset - self.h)
+                upper_x_offset = int(face_0_x_offset - self.pentagon_l + self.l)
+            elif face == 3:
+                upper_y_offset = int(face_0_y_offset - self.pentagon_h)
+                upper_x_offset = int(face_0_x_offset)
+            elif face == 4:
+                upper_y_offset = int(face_0_y_offset - self.h)
+                upper_x_offset = int(face_0_x_offset + self.pentagon_l - self.l)
+            elif face == 5:
+                upper_y_offset = int(face_0_y_offset)
+                upper_x_offset = int(face_0_x_offset + 3 * self.pentagon_l / 2 - self.l)
+            rotated_canvas = rotate_face_rgb(colors[face], rotational_offset, self.get_is_up(face))
+            rotated_is_up = (num+1) % 2 == 1
+            if rotated_is_up:
+                rotated_rgba = rotated_canvas[xy_up[..., 1], xy_up[..., 0] + padding_left]
+                canvas[xy_up[..., 1] + int(upper_y_offset), xy_up[..., 0] + int(upper_x_offset)] = rotated_rgba
+            else:
+                rotated_rgba = rotated_canvas[xy_down[..., 1] + padding_top, xy_down[..., 0] + padding_left]
+                canvas[xy_down[..., 1] + int(upper_y_offset), xy_down[..., 0] + int(upper_x_offset)] = rotated_rgba
+
+        # upper faces, i.e. faces 6-11
+        for num in range(6):
+            face = 6+num
+            if face == 6:
+                rotational_offset = 252
+                upper_y_offset = int(face_0_y_offset - self.h - self.pentagon_h)
+                upper_x_offset = int(face_0_x_offset - self.pentagon_l + self.l)
+                rotated_is_up = True
+            elif face == 7:
+                rotational_offset = 108
+                upper_y_offset = int(face_0_y_offset - self.h - self.pentagon_h)
+                upper_x_offset = int(face_0_x_offset + self.pentagon_l - self.l)
+                rotated_is_up = True
+            elif face == 8:
+                rotational_offset = 36
+                upper_y_offset = int(face_0_y_offset - self.pentagon_h)
+                upper_x_offset = int(face_0_x_offset + self.pentagon_l + self.scaled_edge_length)
+                rotated_is_up = True
+            elif face == 9:
+                rotational_offset = 0
+                upper_y_offset = int(face_0_y_offset - self.h)
+                upper_x_offset = int(face_0_x_offset - 3*self.l - 3*self.scaled_edge_length)
+                rotated_is_up = False
+            elif face == 10:
+                rotational_offset = 324
+                upper_y_offset = int(face_0_y_offset - self.pentagon_h)
+                upper_x_offset = int(face_0_x_offset - 2*self.l - 2*self.scaled_edge_length)
+                rotated_is_up = True
+            elif face == 11:
+                rotational_offset = 324
+                upper_y_offset = int(face_0_y_offset - self.h - self.pentagon_h)
+                upper_x_offset = int(face_0_x_offset - 3*self.l - 2.5*self.scaled_edge_length)
+                rotated_is_up = False
+            rotated_canvas = rotate_face_rgb(colors[face], rotational_offset, self.get_is_up(face))
+            if rotated_is_up:
+                rotated_rgba = rotated_canvas[xy_up[..., 1], xy_up[..., 0] + padding_left]
+                canvas[xy_up[..., 1] + int(upper_y_offset), xy_up[..., 0] + int(upper_x_offset)] = rotated_rgba
+            else:
+                rotated_rgba = rotated_canvas[xy_down[..., 1] + padding_top, xy_down[..., 0] + padding_left]
+                canvas[xy_down[..., 1] + int(upper_y_offset), xy_down[..., 0] + int(upper_x_offset)] = rotated_rgba
+
+        # canvas = cv2.rotate(canvas, cv2.ROTATE_180)
+        return canvas
